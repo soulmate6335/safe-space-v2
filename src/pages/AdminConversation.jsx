@@ -37,7 +37,7 @@ export default function AdminConversation() {
   const [error, setError] = useState(null);
   const [sending, setSending] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
-  const [note, setNote] = useState("");
+  const [ setNote] = useState("");
 
 
   const subscriptionRef = useRef(null);
