@@ -8,7 +8,7 @@ import Card from "../components/ui/Card";
 import TextArea from "../components/ui/TextArea";
 import PageHeader from "../components/ui/PageHeader";
 
-import { createMessage } from "../services/messageService";
+import { createConversation } from "../services/conversationService";
 import toast from "react-hot-toast";
 
 function Write() {
@@ -26,15 +26,16 @@ function Write() {
     try {
       setLoading(true);
 
-      const result = await createMessage(message);
+      const result = await createConversation(message);
 
       toast.success("Your message has been sent successfully!");
 
-      navigate("/sent", {
-        state: {
-          conversationCode: result.conversation_code,
-        },
-      });
+                navigate("/conversation", {
+            state: {
+              conversationId: result.conversationId,
+              conversationCode: result.conversationCode,
+            },
+          });
     } catch (err) {
       console.error(err);
 

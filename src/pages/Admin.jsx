@@ -1,333 +1,208 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
-import Layout from "../components/Layout";
-import ReplyModal from "../components/ReplyModal";
-
-import StatCard from "../components/ui/StatCard";
-import SearchBar from "../components/ui/SearchBar";
-import Badge from "../components/ui/Badge";
-import Button from "../components/ui/Button";
-
-import { supabase } from "../services/supabase";
 import {
-  getMessages,
-  replyToMessage,
-} from "../services/adminService";
-import { logout } from "../services/authService";
+  getConversations,
+  subscribeToInbox,
+} from "../services/adminConversationService";
 
-function Admin() {
+import AdminConversationList from "../components/admin/AdminConversationList";
+
+export default function Admin() {
   const navigate = useNavigate();
 
-  const [messages, setMessages] = useState([]);
-  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const [search, setSearch] = useState("");
+  const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
 
-  useEffect(() => {
-    loadMessages();
+  const subscriptionRef = useRef(null);
+  const isMountedRef = useRef(true);
 
-    const channel = supabase
-      .channel("messages-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "messages",
-        },
-        () => {
-          loadMessages();
+  const loadConversations = useCallback(async ({ silent = false } = {}) => {
+    try {
+      const data = await getConversations();
+
+              if (isMountedRef.current) {
+          setConversations(data);
+          setError(null);
         }
-      )
-      .subscribe();
+              } catch (err) {
+                if (isMountedRef.current) {
+            setError(err.message || "Failed to load conversations.");
+          }
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      if (!silent) {
+        toast.error("Failed to load conversations.");
+      }
+    } finally {
+                    if (isMountedRef.current) {
+                setLoading(false);
+              }
+    }
   }, []);
 
-  async function loadMessages() {
-    try {
-      setLoading(true);
+  useEffect(() => {
+  isMountedRef.current = true;
 
-      const data = await getMessages();
+  loadConversations();
 
-      setMessages(data || []);
-    } catch (error) {
-      console.error(error);
-      toast.error("Unable to load messages.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  subscriptionRef.current = subscribeToInbox(() => {
+    loadConversations({ silent: true });
+  });
 
-  async function handleReply(reply) {
-    if (!selectedMessage) return;
-
-    try {
-      await replyToMessage(selectedMessage.id, reply);
-
-      toast.success("Reply sent successfully!");
-
-      setSelectedMessage(null);
-
-      await loadMessages();
-    } catch (error) {
-      console.error(error);
-      toast.error(error.message);
-    }
-  }
-
-  async function handleLogout() {
-    try {
-      await logout();
-      toast.success("Logged out successfully.");
-    } catch (error) {
-      console.error(error);
-      toast.error(error.message || "Logout failed. Please try again.");
-    } finally {
-      navigate("/login", { replace: true });
-    }
-  }
-
-  const filteredMessages = useMemo(() => {
-    return messages.filter((message) => {
-      const keyword = search.toLowerCase();
-
-      const matchesSearch =
-        message.text.toLowerCase().includes(keyword) ||
-        (message.conversation_code || "")
-          .toLowerCase()
-          .includes(keyword);
-
-      if (filter === "pending") {
-        return matchesSearch && !message.admin_reply;
-      }
-
-      if (filter === "replied") {
-        return matchesSearch && !!message.admin_reply;
-      }
-
-      return matchesSearch;
-    });
-  }, [messages, search, filter]);
+  return () => {
+    isMountedRef.current = false;
+    subscriptionRef.current?.unsubscribe?.();
+  };
+}, [loadConversations]);
 
   const stats = useMemo(() => {
-    const pending = messages.filter(
-      (m) => !m.admin_reply
+    const unread = conversations.filter(
+      (c) => (c.unread_count || 0) > 0
     ).length;
 
-    const replied = messages.filter(
-      (m) => !!m.admin_reply
+    const pending = conversations.filter(
+      (c) => c.status === "pending"
+    ).length;
+
+    const open = conversations.filter(
+      (c) => c.status === "open"
     ).length;
 
     return {
-      total: messages.length,
+      total: conversations.length,
+      unread,
       pending,
-      replied,
+      open,
     };
-  }, [messages]);
+  }, [conversations]);
+
+
+  const filteredConversations = useMemo(() => {
+  switch (filter) {
+    case "unread":
+      return conversations.filter((c) => (c.unread_count || 0) > 0);
+
+    case "pending":
+      return conversations.filter((c) => c.status === "pending");
+
+    case "open":
+      return conversations.filter((c) => c.status === "open");
+
+    default:
+      return conversations;
+  }
+}, [conversations, filter]);
+
+
+  const handleSelectConversation = (conversationId) => {
+    navigate(`/admin/conversation/${conversationId}`);
+  };
 
   return (
-  <Layout>
-    <div className="mx-auto max-w-7xl">
+    <div className="min-h-dvh bg-gray-50 dark:bg-gray-950">
+      <header className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Safe Space Admin
+            </h1>
 
-      {/* Header */}
-      <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-violet-100 bg-gradient-to-r from-violet-50 to-white p-4 shadow-sm sm:p-6 md:flex-row md:items-center md:justify-between dark:border-slate-700 dark:from-slate-900 dark:to-slate-900">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            🌸 Safe Space Admin
-          </h1>
+            <p className="mt-1 text-gray-500">
+              Monitor and respond to anonymous conversations.
+            </p>
+          </div>
 
-          <p className="mt-2 text-gray-500 dark:text-slate-400">
-            Manage anonymous conversations and provide compassionate replies.
-          </p>
+          <div className="rounded-full bg-purple-600 px-5 py-3 font-bold text-white">
+            {stats.total}
+          </div>
         </div>
+      </header>
 
-        <div className="w-full sm:w-auto">
-          <Button
-            variant="danger"
-            className="sm:w-auto"
-            onClick={handleLogout}
-          >
-            Logout
-          </Button>
+      <main className="mx-auto max-w-7xl p-6">
+       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+
+  <button
+    onClick={() => setFilter("all")}
+    className={`rounded-3xl p-5 text-left shadow transition-all ${
+      filter === "all"
+        ? "bg-purple-600 text-white"
+        : "bg-white dark:bg-gray-900"
+    }`}
+  >
+    <p className={filter === "all" ? "text-purple-100" : "text-gray-500"}>
+      Total Conversations
+    </p>
+
+    <h2 className="mt-2 text-3xl font-bold">
+      {stats.total}
+    </h2>
+  </button>
+
+  <button
+    onClick={() => setFilter("unread")}
+    className={`rounded-3xl p-5 text-left shadow transition-all ${
+      filter === "unread"
+        ? "bg-red-600 text-white"
+        : "bg-white dark:bg-gray-900"
+    }`}
+  >
+    <p className={filter === "unread" ? "text-red-100" : "text-gray-500"}>
+      Unread
+    </p>
+
+    <h2 className="mt-2 text-3xl font-bold">
+      {stats.unread}
+    </h2>
+  </button>
+
+  <button
+    onClick={() => setFilter("pending")}
+    className={`rounded-3xl p-5 text-left shadow transition-all ${
+      filter === "pending"
+        ? "bg-yellow-500 text-white"
+        : "bg-white dark:bg-gray-900"
+    }`}
+  >
+    <p className={filter === "pending" ? "text-yellow-100" : "text-gray-500"}>
+      Pending
+    </p>
+
+    <h2 className="mt-2 text-3xl font-bold">
+      {stats.pending}
+    </h2>
+  </button>
+
+  <button
+    onClick={() => setFilter("open")}
+    className={`rounded-3xl p-5 text-left shadow transition-all ${
+      filter === "open"
+        ? "bg-green-600 text-white"
+        : "bg-white dark:bg-gray-900"
+    }`}
+  >
+    <p className={filter === "open" ? "text-green-100" : "text-gray-500"}>
+      Open
+    </p>
+
+    <h2 className="mt-2 text-3xl font-bold">
+      {stats.open}
+    </h2>
+  </button>
+
+</div>
+
+        <div className="flex-1 overflow-hidden">
+          <AdminConversationList
+            conversations={filteredConversations}
+            loading={loading}
+            error={error}
+            onSelectConversation={handleSelectConversation}
+          />
         </div>
-      </div>
-
-      {/* Statistics */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-3 sm:gap-6">
-        <StatCard
-          title="Messages"
-          value={stats.total}
-          color="violet"
-        />
-
-        <StatCard
-          title="Pending"
-          value={stats.pending}
-          color="amber"
-        />
-
-        <StatCard
-          title="Replied"
-          value={stats.replied}
-          color="green"
-        />
-      </div>
-
-      {/* Search */}
-      <SearchBar
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      {/* Filters */}
-      <div className="mb-8 flex flex-wrap gap-3">
-
-        {["all", "pending", "replied"].map((item) => (
-
-          <button
-            key={item}
-            onClick={() => setFilter(item)}
-            className={`
-              rounded-full
-              px-5
-              py-2
-              text-sm
-              font-semibold
-              transition
-
-              ${
-                filter === item
-                  ? "bg-violet-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }
-            `}
-          >
-            {item.charAt(0).toUpperCase() +
-              item.slice(1)}
-          </button>
-
-        ))}
-
-      </div>
-
-      {/* Messages */}
-
-      {loading ? (
-
-        <div className="rounded-2xl bg-white p-12 text-center shadow">
-          <p className="text-gray-500">
-            Loading messages...
-          </p>
-        </div>
-
-      ) : filteredMessages.length === 0 ? (
-
-        <div className="rounded-2xl bg-white p-12 text-center shadow">
-          <p className="text-gray-500">
-            No conversations found.
-          </p>
-        </div>
-
-      ) : (
-
-        <div className="space-y-5">
-
-          {filteredMessages.map((message) => (
-
-            <div
-              key={message.id}
-              onClick={() => setSelectedMessage(message)}
-              className="
-                cursor-pointer
-                rounded-2xl
-                border
-                border-gray-200
-                bg-white
-                p-6
-                shadow-sm
-                transition-all
-                hover:-translate-y-1
-                hover:shadow-lg
-              "
-            >
-
-              <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-
-                <Badge
-                  status={
-                    message.admin_reply
-                      ? "replied"
-                      : "pending"
-                  }
-                />
-
-                <span className="text-sm text-gray-500">
-                  {new Date(
-                    message.created_at
-                  ).toLocaleString()}
-                </span>
-
-              </div>
-
-              <div className="mb-4">
-
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600">
-                  Conversation Code
-                </p>
-
-                <p className="font-mono font-semibold text-violet-700">
-                  {message.conversation_code}
-                </p>
-
-              </div>
-
-              <p className="line-clamp-4 leading-7 text-gray-700">
-                {message.text}
-              </p>
-
-              {message.admin_reply && (
-
-                <div className="mt-5 rounded-xl bg-emerald-50 p-4">
-
-                  <p className="mb-2 text-sm font-semibold text-emerald-700">
-                    Your Reply
-                  </p>
-
-                  <p className="text-gray-700">
-                    {message.admin_reply}
-                  </p>
-
-                </div>
-
-              )}
-
-            </div>
-
-          ))}
-
-        </div>
-
-      )}
-            {/* Reply Modal */}
-      {selectedMessage && (
-        <ReplyModal
-          message={selectedMessage}
-          onClose={() => setSelectedMessage(null)}
-          onReply={handleReply}
-        />
-      )}
-
+      </main>
     </div>
-  </Layout>
-);
-
+  );
 }
-
-export default Admin;
