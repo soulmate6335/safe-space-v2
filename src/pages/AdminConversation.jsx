@@ -37,7 +37,7 @@ export default function AdminConversation() {
   const [error, setError] = useState(null);
   const [sending, setSending] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
-  const [ setNote] = useState("");
+  
 
 
   const subscriptionRef = useRef(null);
@@ -89,7 +89,6 @@ export default function AdminConversation() {
 
       safeSet(() => {
       setConversation(convo);
-setNote(convo.founder_note ?? "");
         setMessages(
           (msgs || []).slice().sort(
             (a, b) =>
@@ -106,7 +105,7 @@ setNote(convo.founder_note ?? "");
     } finally {
       safeSet(() => setLoading(false));
     }
-  }, [id, safeSet, setNote]);
+  }, [id, safeSet ]);
 
   useEffect(() => {
   if (!id) return;
