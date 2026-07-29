@@ -7,6 +7,7 @@ import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import TextArea from "../components/ui/TextArea";
 import PageHeader from "../components/ui/PageHeader";
+import ConversationCodeModal from "../components/ui/ConversationCodeModal";
 
 import { createConversation } from "../services/conversationService";
 import toast from "react-hot-toast";
@@ -14,6 +15,9 @@ import toast from "react-hot-toast";
 function Write() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [conversationData, setConversationData] = useState(null);
 
   const navigate = useNavigate();
 
@@ -28,14 +32,10 @@ function Write() {
 
       const result = await createConversation(message);
 
-      toast.success("Your message has been sent successfully!");
+      setConversationData(result);
+      setShowCodeModal(true);
 
-                navigate("/conversation", {
-            state: {
-              conversationId: result.conversationId,
-              conversationCode: result.conversationCode,
-            },
-          });
+      toast.success("Your message has been sent successfully!");
     } catch (err) {
       console.error(err);
 
@@ -45,6 +45,19 @@ function Write() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleContinue() {
+    if (!conversationData) return;
+
+    setShowCodeModal(false);
+
+    navigate("/conversation", {
+      state: {
+        conversationId: conversationData.conversationId,
+        conversationCode: conversationData.conversationCode,
+      },
+    });
   }
 
   return (
@@ -95,7 +108,9 @@ function Write() {
           <div className="grid gap-6 text-center md:grid-cols-3">
             <div>
               <div className="mb-2 text-3xl">🔒</div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">Anonymous</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white">
+                Anonymous
+              </h3>
               <p className="mt-2 text-sm text-gray-600 dark:text-slate-400">
                 Your identity is never required.
               </p>
@@ -103,7 +118,9 @@ function Write() {
 
             <div>
               <div className="mb-2 text-3xl">❤️</div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">Safe</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white">
+                Safe
+              </h3>
               <p className="mt-2 text-sm text-gray-600 dark:text-slate-400">
                 Every message is treated with respect and care.
               </p>
@@ -111,7 +128,9 @@ function Write() {
 
             <div>
               <div className="mb-2 text-3xl">🌸</div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">You're Heard</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white">
+                You're Heard
+              </h3>
               <p className="mt-2 text-sm text-gray-600 dark:text-slate-400">
                 A founder will read your message and respond when possible.
               </p>
@@ -119,6 +138,12 @@ function Write() {
           </div>
         </Card>
       </div>
+
+      <ConversationCodeModal
+        open={showCodeModal}
+        conversationCode={conversationData?.conversationCode}
+        onContinue={handleContinue}
+      />
     </Layout>
   );
 }

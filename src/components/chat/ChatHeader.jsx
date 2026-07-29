@@ -1,66 +1,73 @@
-import { ArrowLeft } from "lucide-react";
-import { formatLastSeen } from "../../utils/lastSeen";
+import { ArrowLeft, Copy } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function ChatHeader({
   conversationCode,
   status = "open",
-  founderOnline = false,
-  founderLastSeen = null,
   onBack,
 }) {
-  const statusText =
-  status === "closed"
-    ? "Conversation Closed"
-    : founderOnline
-      ? "Founder is online"
-      : formatLastSeen(founderLastSeen);
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(conversationCode);
+      toast.success("Conversation code copied.");
+    } catch {
+      toast.error("Unable to copy conversation code.");
+    }
+  };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90">
-      <div className="mx-auto flex h-16 max-w-3xl items-center gap-4 px-4">
+    <header className="sticky top-0 z-30 border-b border-violet-100 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+      <div className="mx-auto max-w-3xl px-4 py-3">
 
-        <button
-          onClick={onBack}
-          aria-label="Back"
-          className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-gray-100 dark:hover:bg-gray-800"
-        >
-          <ArrowLeft size={20} />
-        </button>
+        <div className="flex items-center gap-3">
 
-        <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-700 text-lg font-bold text-white">
-          💜
+          <button
+            onClick={onBack}
+            aria-label="Back"
+            className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-gray-100 dark:hover:bg-slate-800"
+          >
+            <ArrowLeft size={20} />
+          </button>
 
-          <span
-            className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-gray-900 ${
-              founderOnline
-                ? "bg-emerald-500 animate-pulse"
-                : "bg-gray-400"
-            }`}
-          />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-semibold text-gray-900 dark:text-white">
-            Safe Space
-          </h2>
-
-          <div className="flex items-center gap-2">
-            <span
-              className={`h-2 w-2 rounded-full ${
-                founderOnline
-                  ? "bg-emerald-500 animate-pulse"
-                  : "bg-gray-400"
-              }`}
-            />
-
-            <span className="truncate text-xs text-gray-500 dark:text-gray-400">
-              {statusText}
-            </span>
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-lg text-white">
+            💜
           </div>
+
+          <div className="flex-1">
+            <h2 className="font-semibold text-gray-900 dark:text-white">
+              Safe Space
+            </h2>
+
+            <p className="text-sm text-gray-500 dark:text-slate-400">
+              {status === "closed"
+                ? "Conversation Closed"
+                : "Your conversation is secure and anonymous"}
+            </p>
+          </div>
+
         </div>
 
-        <div className="hidden rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 sm:block">
-          {conversationCode}
+        <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-900 dark:bg-slate-800">
+
+          <p className="text-xs uppercase tracking-wider text-gray-500">
+            Conversation Code
+          </p>
+
+          <div className="mt-2 flex items-center justify-between gap-3">
+
+            <span className="font-mono text-lg font-bold tracking-widest text-violet-700 dark:text-violet-300 break-all">
+              {conversationCode}
+            </span>
+
+            <button
+              onClick={copyCode}
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white transition hover:bg-violet-700"
+            >
+              <Copy size={18} />
+            </button>
+
+          </div>
+
         </div>
 
       </div>

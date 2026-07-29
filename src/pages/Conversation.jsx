@@ -14,11 +14,6 @@ import NotificationPermissionBanner from '../components/chat/NotificationPermiss
 import Loader from '../components/ui/Loader';
 import EmptyState from '../components/ui/EmptyState';
 
-import {
-  getPresence,
-  subscribePresence,
-  setOnline,
-} from "../services/presenceService";
 
 // How close to the bottom (in pixels) counts as "already at the bottom" for
 // deciding whether to auto-scroll vs. show the "new messages" pill.
@@ -61,7 +56,7 @@ export default function Conversation() {
 
   // eslint-disable-next-line no-unused-vars -- reserved for a future presence/typing broadcast channel
   const [isPeerTyping, setIsPeerTyping] = useState(false);
-const [founderPresence, setFounderPresence] = useState(null);
+
 
   // In-app "new messages" pill: separate from unreadCount above. This
   // covers the case where the tab IS focused but the user has scrolled up
@@ -81,52 +76,6 @@ const [founderPresence, setFounderPresence] = useState(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-
-useEffect(() => {
-  if (!conversation?.id) return;
-
-  let mounted = true;
-
-  // Mark the user as online
-  setOnline(conversation.id, "user", true).catch(console.error);
-
-  async function loadPresence() {
-    try {
-      const rows = await getPresence(conversation.id);
-
-      if (!mounted) return;
-
-      const founder = rows.find(
-  (r) => r.sender === "admin"
-);
-
-setFounderPresence(founder || null);
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  loadPresence();
-
-  const subscription = subscribePresence(
-    conversation.id,
-    (presence) => {
-      if (presence.sender === "admin") {
-  setFounderPresence(presence);
-}
-    }
-  );
-
-  return () => {
-    mounted = false;
-
-    // Mark the user as offline
-    setOnline(conversation.id, "user", false).catch(console.error);
-
-    subscription.unsubscribe();
-  };
-}, [conversation]);
 
 
   const scrollToBottom = useCallback((behavior = 'smooth') => {
@@ -221,11 +170,11 @@ setFounderPresence(founder || null);
 
   return (
     <div className="flex h-dvh w-full flex-col bg-gray-50 dark:bg-gray-950">
-              <ChatHeader
-  conversationCode={conversation?.conversation_code || conversationCode}
+             <ChatHeader
+  conversationCode={
+    conversation?.conversation_code || conversationCode
+  }
   status={conversation?.status}
-  founderOnline={founderPresence?.is_online ?? false}
-  founderLastSeen={founderPresence?.updated_at}
   onBack={() => navigate("/")}
 />
 
